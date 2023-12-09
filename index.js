@@ -13,14 +13,14 @@ app.use(express.json());
 
 const verifyToken = (req, res, next)=>{
   if(!req.headers.authorization){
-    return res.status(401).send({message: "unathorized access"});
+    return res.status(401).send({message: "unauthorized access"});
   };
 
   const token = req.headers.authorization.split(' ')[1];
 
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded)=>{
     if(err){
-      return res.status(401).send({message: "unathorized access"});
+      return res.status(401).send({message: "unauthorized access"});
     }
     req.decoded = decoded;
     next();
@@ -69,7 +69,7 @@ async function run() {
     // jwt related apis
     app.post("/jwt", async(req,res)=>{
       const user = req.body;
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1h'});
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1h'});  
       res.send({token})
     });
 
