@@ -238,12 +238,28 @@ async function run() {
     });
 
     // stats and analysis
-    app.get("/admin-stats", async(req,res)=>{
+    app.get("/admin-stats", verifyToken, verifyAdmin, async(req,res)=>{
       const users = await userCollection.estimatedDocumentCount();
       const menuItems = await menuCollection.estimatedDocumentCount();
       const orders = await paymentsCollection.estimatedDocumentCount();
-      const payments = await paymentsCollection.find().toArray();
-      const revenue = payments.reduce((total, item)=> total + item.price, 0)
+
+      // This is no a best way
+      // const payments = await paymentsCollection.find().toArray();
+      // const revenue = payments.reduce((total, item)=> total + item.price, 0);
+
+      // This is best way
+      const result = await paymentsCollection.aggregate([
+        {
+          $group: {
+            _id : null,
+            totalRevenue : {
+              $sum : "$price"
+            }
+          }
+        }
+      ]).toArray();
+      
+      const revenue = result.length > 0 ? result[0].totalRevenue : 0;
 
       res.send({
         users,
@@ -251,6 +267,43 @@ async function run() {
         orders,
         revenue
       })
+    })
+
+    //using aggregate pipeline
+    app.get("/order-stats", verifyToken, verifyAdmin, async(req, res)=>{
+      const result = await paymentsCollection.aggregate([
+        {
+          $unwind: "$menuIds"
+        },
+        {
+          $lookup : {
+            from: 'menu',
+            localField: 'menuIds',
+            foreignField: '_id',
+            as: "menuItems"
+          },
+        },
+        {
+          $unwind: '$menuItems'
+        },
+        {
+          $group: {
+            _id: '$menuItems.category',
+            quantity: {$sum: 1},
+            revenue: {$sum: "$menuItems.price"}
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            category: "$_id",
+            quantity: "$quantity",
+            revenue: "$revenue"
+          }
+        }
+      ]).toArray();
+
+      res.send(result); 
     })
 
     // Send a ping to confirm a successful connection
